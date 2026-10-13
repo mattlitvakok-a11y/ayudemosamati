@@ -1,0 +1,38 @@
+name: Importar sitio vivo
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descargar archivos del sitio publicado
+        run: |
+          set -e
+          mkdir -p documentos
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+          curl -fsSL -A "$UA" https://ayudemosamati.com.ar/              -o index.html
+          curl -fsSL -A "$UA" https://ayudemosamati.com.ar/sobre-mi.html -o sobre-mi.html
+          curl -fsSL -A "$UA" https://ayudemosamati.com.ar/prensa.html   -o prensa.html
+          curl -fsSL -A "$UA" https://ayudemosamati.com.ar/matu-archivo.jpeg -o matu-archivo.jpeg
+          curl -fsSL -A "$UA" https://ayudemosamati.com.ar/documentos/presupuesto-cirugia-publico.pdf -o documentos/presupuesto-cirugia-publico.pdf
+          curl -fsSL -A "$UA" https://ayudemosamati.com.ar/documentos/presupuesto-insumos-publico.pdf -o documentos/presupuesto-insumos-publico.pdf
+      - name: Quitar noindex y script de challenge
+        run: |
+          set -e
+          for f in index.html sobre-mi.html prensa.html; do
+            perl -0777 -pi -e 's{<meta name="robots" content="noindex">}{}g' "$f"
+            perl -0777 -pi -e 's{<script>\(function\(\)\{function c\(\).*?</script>}{}gs' "$f"
+            perl -0777 -pi -e 's{<iframe height="1" width="1"[^>]*></iframe>}{}gs' "$f"
+          done
+          grep -c noindex index.html || true
+          ls -la documentos/ .
+      - name: Commitear
+        run: |
+          git config user.name "importador"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "Importa el sitio publicado tal como esta online" || echo "sin cambios"
+          git push

@@ -1,0 +1,46 @@
+name: Importar fotos
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fotos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bajar y preparar
+        run: |
+          set +e
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick > /dev/null
+          mkdir -p fotos
+          : > fotos/manifest.txt
+          bajar () {  # id slug
+            url="https://drive.google.com/thumbnail?id=$1&sz=w1600"
+            curl -sL --max-time 60 "$url" -o /tmp/raw
+            tipo=$(file -b --mime-type /tmp/raw)
+            if [ "$tipo" = "image/jpeg" ] || [ "$tipo" = "image/png" ] || [ "$tipo" = "image/webp" ]; then
+              convert /tmp/raw -auto-orient -strip -resize '1400x1400>' -quality 82 "fotos/$2.jpg" \
+                && echo "OK $2 $(stat -c%s fotos/$2.jpg)" >> fotos/manifest.txt \
+                || echo "FALLO-CONVERT $2 $tipo" >> fotos/manifest.txt
+            else
+              echo "FALLO-DESCARGA $2 $tipo $(head -c 120 /tmp/raw | tr -d '\n')" >> fotos/manifest.txt
+            fi
+          }
+          bajar 1zyRhX26d-bPmtL7yuOavZlta8kNpHtzM 2025-11-06-fachada
+          bajar 14Ig4GmIuCIUuhKC0-vmKap_9CIPLjvQQ 2025-07-02-terraza-hierros-a
+          bajar 1QD_co1cniuekwjEpvzO9X5Ggcn4gY9h8 2025-07-02-terraza-hierros-b
+          bajar 1IFimlCsJWhggrrfCTIh8IGcOMBmsjmou 2025-04-13-tablero-electrico
+          bajar 1KxTqYrcRu-qgAbWsspUUIwbEb4dmTiNc 2025-06-11-instalacion-normalizada
+          bajar 1-pXia-kmDgUj7z1HcZNPXBDbYejtnHyP 2025-07-14-bano-estado
+          bajar 1tS566dphcQIRpi7lexqS-EJam3-iQII8 2025-08-26-obra-junto-a-ventana
+          bajar 1lIRYrSMF9H-6CVYP_cO1dQpJCvWQgKRB 2025-08-29-cascote
+          bajar 1e0D7EjBDg44BR72XuJCM3sPbyz-nVR4G 2025-10-27-muro-sobre-medianera
+          bajar 1BIA1CQPdgfKz9z-_DDen8vr13sUUoh5q 2025-08-18-entablonado
+          cat fotos/manifest.txt
+      - name: Commitear
+        run: |
+          git config user.name "importador"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "Importa fotos candidatas (rama de revision)" || echo "sin cambios"
+          git push

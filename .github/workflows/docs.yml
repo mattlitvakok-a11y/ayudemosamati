@@ -1,0 +1,41 @@
+name: Importar documentos
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bajar
+        run: |
+          set +e
+          mkdir -p _docs_raw
+          : > _docs_raw/manifest.txt
+          bajar () {  # id nombre
+            curl -sL --max-time 120 "https://drive.google.com/uc?export=download&id=$1" -o "_docs_raw/$2"
+            tipo=$(file -b --mime-type "_docs_raw/$2")
+            if [ "$tipo" = "application/pdf" ] || [ "$tipo" = "image/jpeg" ] || [ "$tipo" = "image/png" ]; then
+              echo "OK $2 $tipo $(stat -c%s _docs_raw/$2)" >> _docs_raw/manifest.txt
+            else
+              echo "FALLO $2 $tipo $(head -c 150 _docs_raw/$2 | tr -d '\n')" >> _docs_raw/manifest.txt
+              rm -f "_docs_raw/$2"
+            fi
+          }
+          bajar 1Edk9TpWjSPJOOrkCUmzbTJtpe82-gmRN pronto-despacho-defensa-civil-junio.pdf
+          bajar 10IjiAsUb-J6pgiE6bVA4xoUst_T8dvIh pronto-despacho-obras-privadas-junio.pdf
+          bajar 1EDyoSCgN0T4jnJdtVigNFxm-A0yFPVLN nulidad-y-pedido-inspeccion-27-02.pdf
+          bajar 1jw9mqDdXd3Z_Dz_0K762jeXxWcudBEG8 pedido-inspeccion-27-02.pdf
+          bajar 15gupUXCuKSI-RYqXwbVWkUOl9y_PUatd lista-expedientes-municipalidad.pdf
+          bajar 1cx2oKc_Nx_mcldzAo07QHGi-esakkLhU comprobantes-de-pago.pdf
+          bajar 1QyFlqHG5szgK77I-hHtCDg-dB0T88beX certificacion-negativa-anses.pdf
+          cat _docs_raw/manifest.txt
+      - name: Commitear
+        run: |
+          git config user.name "importador"
+          git config user.email "actions@github.com"
+          git checkout -b docs-raw || git checkout docs-raw
+          git add -A
+          git commit -m "Importa documentos para tachado (rama de revision)" || echo "sin cambios"
+          git push -f origin docs-raw
